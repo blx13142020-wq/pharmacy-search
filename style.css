@@ -1,0 +1,499 @@
+/* 药品检索 v3
+ * 设计语言：editorial minimalism
+ * - 衬线 Noto Serif SC 用于药名/标题
+ * - 等宽 JetBrains Mono 用于位置/货号/小标签
+ * - 单一强调色 #c0392b，其他全部灰阶
+ * - 用 hairline 分隔条目，不用卡片
+ * - 三档密度（compact / default / spacious）按结果数自动切换
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;700;900&family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600&display=swap');
+
+:root {
+    --ink: #0d0d0d;
+    --sub: #555;
+    --mute: #8a8a8a;
+    --line: #1a1a1a;
+    --hair: #e5e5e5;
+    --hair-soft: #f0f0f0;
+    --bg: #fafaf7;
+    --paper: #ffffff;
+    --accent: #c0392b;
+    --accent-soft: #f9ebe9;
+    --warn: #8a6d00;
+}
+
+html, body, [class*="css"] {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-feature-settings: "tnum", "cv11";
+    -webkit-font-smoothing: antialiased;
+    color: var(--ink);
+}
+.stApp { background: var(--bg); }
+.block-container {
+    max-width: 720px;
+    padding-top: 2.2rem;
+    padding-bottom: 4rem;
+}
+header[data-testid="stHeader"] { background: transparent; }
+#MainMenu, footer { visibility: hidden; }
+
+/* 顶部 */
+.masthead {
+    border-top: 2px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    padding: 18px 0 14px;
+    margin-bottom: 26px;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+}
+.masthead-title {
+    font-family: 'Noto Serif SC', serif;
+    font-weight: 900;
+    font-size: 30px;
+    letter-spacing: -.02em;
+    line-height: 1;
+}
+.masthead-meta {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--mute);
+}
+
+/* 输入框 */
+.stTextInput > label { display: none; }
+.stTextInput > div > div {
+    background: transparent !important;
+}
+.stTextInput > div > div > input {
+    font-family: 'Noto Serif SC', serif !important;
+    font-size: 22px !important;
+    font-weight: 500 !important;
+    padding: 10px 0 12px 0 !important;
+    background: transparent !important;
+    border: none !important;
+    border-bottom: 1.5px solid var(--line) !important;
+    border-radius: 0 !important;
+    color: var(--ink) !important;
+    caret-color: var(--accent);
+}
+.stTextInput > div > div > input::placeholder {
+    color: #b8b8b8;
+    font-weight: 400;
+    font-style: italic;
+}
+.stTextInput > div > div > input:focus {
+    box-shadow: none !important;
+    border-bottom-color: var(--accent) !important;
+}
+
+/* 搜索/清空按钮：给手机端一个明确触发点 */
+.stButton > button {
+    height: 30px;
+    padding: 0 10px;
+    border-radius: 0;
+    border: 1px solid var(--hair) !important;
+    background: transparent !important;
+    color: var(--sub) !important;
+    font-family: 'JetBrains Mono', "Microsoft YaHei", sans-serif;
+    font-size: 11px;
+    letter-spacing: .04em;
+    box-shadow: none !important;
+}
+.stButton > button:hover,
+.stButton > button:focus {
+    border-color: var(--line) !important;
+    color: var(--ink) !important;
+}
+
+/* 输入框下方提示 */
+.input-hint {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--mute);
+}
+
+/* 快捷标签 */
+.quick-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 14px;
+    margin: 22px 0 8px;
+    padding-top: 18px;
+    border-top: 1px solid var(--hair);
+}
+.quick-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--mute);
+    margin-right: 6px;
+}
+.quick-item {
+    font-family: 'Noto Serif SC', serif;
+    font-size: 14px;
+    color: var(--ink);
+    border-bottom: 1px solid var(--ink);
+    padding-bottom: 1px;
+}
+
+/* 结果区头 */
+.result-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 22px 0 8px;
+    border-bottom: 1px solid var(--line);
+    margin-top: 18px;
+}
+.result-meta-count {
+    font-family: 'Noto Serif SC', serif;
+    font-size: 13px;
+    color: var(--sub);
+}
+.result-meta-count b {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--ink);
+    padding: 0 2px;
+}
+.result-meta-note {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--mute);
+}
+
+/* 结果条目 - 三档密度
+   .compact  : >12 条，紧凑单行式，藏柜位图
+   (default) : 5-12 条，标准
+   .spacious : <=4 条，宽松，给每条更多呼吸 */
+.row {
+    display: grid;
+    grid-template-columns: 38px 1fr 32px;
+    gap: 14px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--hair);
+    position: relative;
+    overflow: hidden;
+}
+.row > * { min-width: 0; }
+.row-body { min-width: 0; overflow: hidden; }
+.row.compact {
+    grid-template-columns: 32px 1fr auto 22px;
+    gap: 12px;
+    padding: 8px 0;
+    align-items: center;
+}
+.row.compact .row-index { padding-top: 0; padding-right: 10px; }
+.row.compact .row-loc {
+    margin-bottom: 2px;
+    font-size: 11.5px;
+}
+.row.compact .row-name {
+    font-size: 15px;
+    line-height: 1.3;
+}
+.row.compact .row-code {
+    margin-top: 2px;
+    font-size: 10.5px;
+}
+.row.compact .row-tags {
+    margin-top: 0;
+    align-self: center;
+    font-size: 10px;
+    white-space: nowrap;
+    color: var(--mute);
+}
+.row.compact .row-tags > span { display: inline; }
+.row.compact .locator { display: none; }
+.row.compact .row-therapy { display: none; }
+
+.row.spacious { padding: 22px 0; }
+.row.spacious .row-name { font-size: 21px; }
+.row.spacious .row-therapy { font-size: 13px; }
+
+.row-index {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: .05em;
+    color: var(--mute);
+    padding-top: 4px;
+    border-right: 1px solid var(--hair);
+    padding-right: 12px;
+    line-height: 1.2;
+}
+.row-index-num {
+    display: block;
+    font-size: 11px;
+    color: var(--mute);
+}
+
+.row-loc {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: .03em;
+    color: var(--accent);
+    text-transform: uppercase;
+    line-height: 1.2;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.row-loc-extra {
+    color: var(--mute);
+    font-weight: 500;
+    font-size: 11px;
+}
+.row-name {
+    font-family: 'Noto Serif SC', serif;
+    font-weight: 700;
+    font-size: 18px;
+    line-height: 1.32;
+    color: var(--ink);
+    letter-spacing: -.005em;
+    overflow-wrap: anywhere;
+}
+.row-code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px;
+    color: var(--sub);
+    margin-top: 6px;
+    letter-spacing: .04em;
+}
+.row-code-tail {
+    color: var(--ink);
+    font-weight: 700;
+    border-bottom: 1.5px solid var(--accent);
+    padding: 0 1px;
+}
+.row-tags {
+    margin-top: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--sub);
+}
+.row-tag-divider { color: var(--hair); }
+.row-tag-warn { color: var(--warn); font-weight: 700; }
+.row-tag-danger { color: var(--accent); font-weight: 700; }
+
+/* 主治弱提示：编辑风斜体 + 起首装饰短线 */
+.row-therapy {
+    font-family: 'Noto Serif SC', serif;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--sub);
+    margin-top: 8px;
+    padding-top: 7px;
+    border-top: 1px solid var(--hair-soft);
+    font-style: italic;
+    display: flex;
+    gap: 8px;
+}
+.row-therapy::before {
+    content: '';
+    flex-shrink: 0;
+    width: 14px;
+    height: 1px;
+    background: var(--mute);
+    margin-top: 9px;
+}
+.row-therapy b {
+    font-style: normal;
+    font-weight: 700;
+    color: var(--ink);
+    margin-right: 6px;
+    letter-spacing: -.01em;
+}
+
+/* 剂型图标：放在卡片最右侧独立列 */
+.row-icon {
+    color: var(--mute);
+    opacity: .55;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 8px;
+}
+.row-icon svg { width: 28px; height: 28px; }
+.row.compact .row-icon { padding-top: 0; }
+.row.compact .row-icon svg { width: 20px; height: 20px; }
+.row.spacious .row-icon svg { width: 32px; height: 32px; }
+
+/* 柜位定位图：极简点阵 */
+.locator {
+    margin-top: 14px;
+    padding: 12px 14px;
+    background: var(--paper);
+    border: 1px solid var(--hair);
+    position: relative;
+    z-index: 0;
+    overflow: hidden;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+.locator-cap {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--mute);
+    margin-bottom: 9px;
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+}
+.locator-cap b {
+    color: var(--ink);
+    font-weight: 700;
+    white-space: nowrap;
+}
+/* 横向滚动兜底：列数多时可滑动，绝不溢出到相邻卡片 */
+.cabinet-scroll {
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+}
+.cabinet-grid {
+    --cell-size: 10px;
+    display: inline-grid;
+    grid-auto-rows: var(--cell-size);
+    gap: 3px;
+    line-height: 0;
+    width: max-content;
+}
+.cell {
+    display: block;
+    width: var(--cell-size);
+    height: var(--cell-size);
+    background: #eaeaea;
+    border-radius: 1px;
+}
+.cell.empty { background: transparent; }
+.cell.hit {
+    background: var(--accent);
+    box-shadow: 0 0 0 2px rgba(192, 57, 43, .15);
+}
+/* 超宽柜降级：只显示文字坐标 */
+.locator-text .locator-cap { margin-bottom: 0; }
+
+/* 空状态 */
+.empty {
+    padding: 60px 0 30px;
+    text-align: center;
+    font-family: 'Noto Serif SC', serif;
+}
+.empty-mark {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: .2em;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+}
+.empty-title {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -.01em;
+}
+.empty-sub {
+    font-family: 'Inter', sans-serif;
+    color: var(--sub);
+    font-size: 13px;
+    margin-top: 8px;
+}
+
+.section-head {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: .15em;
+    text-transform: uppercase;
+    color: var(--mute);
+    padding: 26px 0 6px;
+    border-bottom: 1px solid var(--hair);
+    margin-bottom: 4px;
+}
+
+.zone-hints {
+    margin: 14px 0;
+    padding: 10px 0;
+}
+.zone-hint-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--mute);
+    margin-bottom: 8px;
+}
+.zone-hint-list {
+    font-family: 'Noto Serif SC', serif;
+    font-size: 14px;
+    color: var(--ink);
+    line-height: 1.6;
+}
+.zone-hint-list span {
+    border-bottom: 1px solid var(--ink);
+    margin-right: 14px;
+    padding-bottom: 1px;
+}
+
+/* 底部 */
+.colophon {
+    margin-top: 50px;
+    padding-top: 18px;
+    border-top: 2px solid var(--line);
+    display: flex;
+    justify-content: space-between;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--mute);
+}
+
+/* Streamlit 控件清理 */
+[data-testid="stExpander"] {
+    border: none !important;
+    background: transparent !important;
+}
+[data-testid="stExpander"] summary {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px !important;
+    letter-spacing: .12em !important;
+    text-transform: uppercase;
+    color: var(--mute) !important;
+}
+
+/* 移动端 */
+@media (max-width: 520px) {
+    .block-container { padding-left: 1.1rem; padding-right: 1.1rem; padding-top: 1.6rem; }
+    .masthead-title { font-size: 24px; }
+    .stTextInput > div > div > input { font-size: 19px !important; }
+    .row { grid-template-columns: 28px 1fr 24px; gap: 10px; }
+    .row.compact { grid-template-columns: 24px 1fr auto 18px; }
+    .row-index { padding-right: 8px; }
+    .row-name { font-size: 17px; }
+    .row-icon svg { width: 22px; height: 22px; }
+    .cell { width: 8px; height: 8px; }
+}
