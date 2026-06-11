@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>药品检索 · 离线版</title>
+<style>
+:root{
+  --ink:#0d0d0d;--sub:#555;--mute:#8a8a8a;--line:#1a1a1a;--hair:#e5e5e5;
+  --hair-soft:#f0f0f0;--bg:#fafaf7;--paper:#fff;--accent:#c0392b;--accent-soft:#f9ebe9;--warn:#8a6d00;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);
+  font-family:'Noto Serif SC',-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",serif;
+  -webkit-font-smoothing:antialiased;}
+.mono{font-family:'JetBrains Mono',ui-monospace,Menlo,Consolas,monospace;}
+.wrap{max-width:460px;margin:0 auto;padding:14px 14px 60px;}
+.masthead{display:flex;justify-content:space-between;align-items:baseline;
+  border-bottom:2px solid var(--line);padding-bottom:10px;margin-bottom:14px;}
+.masthead-title{font-size:24px;font-weight:900;letter-spacing:-.01em;}
+.masthead-meta{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;color:var(--mute);text-transform:uppercase;}
+/* 搜索框 */
+.searchbar{position:sticky;top:0;z-index:20;background:var(--bg);padding-top:6px;}
+#q{width:100%;border:1px solid var(--hair);background:var(--paper);border-radius:10px;
+  padding:13px 14px;font-size:16px;color:var(--ink);outline:none;
+  font-family:'Noto Serif SC',serif;}
+#q:focus{border-color:var(--accent);}
+.actions{display:flex;gap:8px;margin-top:8px;}
+.btn{flex:0 0 auto;border:1px solid var(--hair);background:var(--paper);border-radius:8px;
+  padding:8px 16px;font-size:13px;color:var(--sub);cursor:pointer;
+  font-family:'JetBrains Mono',monospace;}
+.btn:active{background:var(--accent-soft);}
+.btn.primary{color:var(--accent);border-color:var(--accent);}
+.hint{display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;
+  font-size:10.5px;color:var(--mute);letter-spacing:.04em;margin:8px 2px 0;text-transform:uppercase;}
+/* recent */
+.recent{margin-top:14px;}
+.recent-head{display:flex;justify-content:space-between;align-items:center;
+  font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--mute);margin-bottom:8px;}
+.recent-chips{display:flex;flex-wrap:wrap;gap:7px;}
+.chip{border:1px solid var(--hair);background:var(--paper);border-radius:20px;
+  padding:6px 14px;font-size:13px;cursor:pointer;}
+.chip:active{background:var(--accent-soft);}
+.linkbtn{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--mute);
+  background:none;border:none;cursor:pointer;text-transform:uppercase;letter-spacing:.05em;}
+/* result meta */
+.result-meta{display:flex;justify-content:space-between;align-items:baseline;
+  border-top:1px solid var(--line);margin-top:18px;padding-top:10px;}
+.result-meta-count{font-size:15px;}
+.result-meta-count b{font-weight:900;}
+.result-meta-note{font-family:'JetBrains Mono',monospace;font-size:10.5px;
+  text-transform:uppercase;letter-spacing:.08em;color:var(--mute);}
+/* overview */
+.overview{margin-top:16px;padding:14px;background:var(--paper);border:1px solid var(--hair);border-left:3px solid var(--accent);}
+.overview-head{display:flex;justify-content:space-between;align-items:baseline;
+  font-family:'JetBrains Mono',monospace;text-transform:uppercase;margin-bottom:12px;}
+.overview-head>span:first-child{font-size:12px;font-weight:700;letter-spacing:.1em;}
+.overview-sub{font-size:10px;letter-spacing:.08em;color:var(--mute);}
+.overview-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:14px 16px;}
+.ov-cab{min-width:0;}
+.ov-cab-head{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:6px;}
+.ov-cab-name{font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:var(--accent);
+  letter-spacing:.02em;text-transform:uppercase;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ov-cab-count{flex-shrink:0;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;
+  color:var(--paper);background:var(--accent);border-radius:9px;padding:1px 7px;min-width:18px;text-align:center;}
+.ov-scroll{max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+.ov-grid{display:grid;width:max-content;line-height:0;}
+.ov-cell{display:block;background:#ececec;border-radius:1px;}
+.ov-cell.empty{background:transparent;}
+.ov-cell.hit{background:var(--accent);box-shadow:0 0 0 1.5px rgba(192,57,43,.2);}
+.ov-list{margin-top:7px;display:flex;flex-direction:column;gap:3px;}
+.ov-item{display:flex;align-items:baseline;gap:6px;line-height:1.3;}
+.ov-rc{flex-shrink:0;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;
+  color:var(--accent);background:var(--accent-soft);border-radius:3px;padding:0 4px;min-width:30px;text-align:center;}
+.ov-dn{font-family:'Noto Serif SC',serif;font-size:12px;color:var(--ink);line-height:1.3;
+  text-decoration:none;border-bottom:1px dotted var(--mute);cursor:pointer;}
+.ov-dn:active,.ov-dn:hover{color:var(--accent);border-bottom-color:var(--accent);}
+.ov-more{margin-top:10px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--mute);text-align:center;}
+/* generic aggregation */
+.agg{margin-top:14px;}
+.agg-group{border-bottom:1px solid var(--hair);}
+.agg-head{display:flex;align-items:baseline;gap:10px;padding:12px 0;cursor:pointer;}
+.agg-head .gtitle{font-size:17px;font-weight:700;flex:1;}
+.agg-head .gcount{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--paper);
+  background:var(--accent);border-radius:10px;padding:1px 8px;}
+.agg-head .gchev{font-family:'JetBrains Mono',monospace;color:var(--mute);font-size:13px;transition:transform .2s;}
+.agg-group.open .gchev{transform:rotate(90deg);}
+.agg-body{display:none;padding-bottom:8px;}
+.agg-group.open .agg-body{display:block;}
+/* row */
+.row{display:grid;grid-template-columns:1fr;gap:0;padding:13px 0;border-bottom:1px solid var(--hair);
+  scroll-margin-top:80px;position:relative;}
+.row:target{animation:flash 1.6s ease-out;}
+@keyframes flash{0%,30%{background:var(--accent-soft);}100%{background:transparent;}}
+.row-topline{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:4px;flex-wrap:wrap;}
+.row-code-lead{font-family:'JetBrains Mono',monospace;font-size:12.5px;color:var(--sub);letter-spacing:.04em;}
+.row-code-lead b{color:var(--ink);font-weight:700;border-bottom:1.5px solid var(--accent);padding:0 1px;}
+.row-loc-lead{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:13px;letter-spacing:.03em;
+  color:var(--accent);text-transform:uppercase;text-align:right;white-space:nowrap;}
+.row-loc-extra{color:var(--mute);font-weight:500;font-size:11px;margin-left:5px;}
+.row-name{font-size:17px;font-weight:700;line-height:1.3;overflow-wrap:anywhere;}
+.row-tags{margin-top:6px;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--mute);
+  display:flex;gap:7px;flex-wrap:wrap;align-items:center;}
+.row-tags .div{color:var(--hair);}
+.row-tag-danger{color:var(--accent);}
+/* locator grid in detail */
+.locator{margin-top:12px;padding:11px 12px;background:var(--paper);border:1px solid var(--hair);}
+.locator-cap{font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--mute);margin-bottom:9px;display:flex;justify-content:space-between;gap:10px;}
+.locator-cap b{color:var(--ink);font-weight:700;text-align:right;overflow-wrap:anywhere;}
+.cab-scroll{max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+.cab-board{display:inline-block;width:max-content;}
+.cab-axis{display:grid;gap:var(--g,3px);margin-bottom:var(--g,3px);align-items:center;}
+.axis-corner{width:18px;}
+.axis-col{font-family:'JetBrains Mono',monospace;font-size:8px;line-height:1;color:var(--mute);text-align:center;}
+.cab-grid{display:grid;gap:var(--g,3px);line-height:0;width:max-content;align-items:center;}
+.axis-row{font-family:'JetBrains Mono',monospace;font-size:8px;line-height:1;color:var(--mute);text-align:center;width:18px;}
+.cell{display:block;width:var(--cs,12px);height:var(--cs,12px);background:#eaeaea;border-radius:1px;}
+.cell.empty{background:transparent;}
+.cell.hit{background:var(--accent);box-shadow:0 0 0 2px rgba(192,57,43,.15);}
+.cell.hit-alt{background:var(--paper);box-shadow:inset 0 0 0 2px var(--accent);}
+/* 拣货模式：按货架顺序的勾选清单 */
+.pick-bar{display:flex;justify-content:space-between;align-items:center;
+  background:var(--paper);border:1px solid var(--hair);border-left:3px solid var(--accent);
+  padding:9px 12px;margin-top:14px;}
+.pick-bar .pt{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;}
+.pick-bar .pp{font-family:'JetBrains Mono',monospace;font-size:13px;}
+.pick-bar .pp b{color:var(--accent);font-size:16px;}
+.pick-cab-head{display:flex;align-items:center;gap:8px;margin-top:14px;padding-bottom:5px;
+  border-bottom:2px solid var(--line);}
+.pick-cab-head .pcn{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;
+  color:var(--accent);text-transform:uppercase;letter-spacing:.04em;}
+.pick-cab-head .pcc{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--mute);}
+.pick-row{display:flex;align-items:center;gap:10px;padding:11px 2px;border-bottom:1px solid var(--hair);cursor:pointer;}
+.pick-row:active{background:var(--accent-soft);}
+.pick-check{flex:0 0 auto;width:22px;height:22px;border:2px solid var(--hair);border-radius:50%;
+  display:flex;align-items:center;justify-content:center;font-size:13px;color:transparent;}
+.pick-rc{flex:0 0 auto;font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:700;
+  color:var(--accent);min-width:46px;}
+.pick-body{flex:1;min-width:0;}
+.pick-name{font-size:14.5px;font-weight:700;line-height:1.25;overflow-wrap:anywhere;}
+.pick-code{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--sub);margin-top:1px;}
+.pick-code b{color:var(--ink);border-bottom:1.5px solid var(--accent);}
+.pick-multi{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--warn);margin-left:6px;}
+.pick-row.done{opacity:.38;}
+.pick-row.done .pick-check{border-color:var(--accent);background:var(--accent);color:#fff;}
+.pick-row.done .pick-name,.pick-row.done .pick-rc{text-decoration:line-through;}
+/* empty */
+.empty{padding:50px 0 30px;text-align:center;}
+.empty-mark{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.2em;color:var(--accent);text-transform:uppercase;margin-bottom:12px;}
+.empty-title{font-size:20px;font-weight:700;margin-bottom:8px;}
+.empty-sub{color:var(--mute);font-size:13px;}
+.colophon{display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;
+  font-size:10px;color:var(--mute);letter-spacing:.06em;text-transform:uppercase;
+  border-top:1px solid var(--hair);margin-top:24px;padding-top:12px;}
+.toggle{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent);background:none;
+  border:1px solid var(--accent);border-radius:6px;padding:6px 12px;cursor:pointer;margin:12px 0;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="masthead">
+    <div class="masthead-title">药品检索</div>
+    <div class="masthead-meta" id="meta">离线版</div>
+  </div>
+  <div class="searchbar">
+    <input id="q" type="search" inputmode="search" autocomplete="off"
+      placeholder="药名 · 货号后四位 · 拼音首字母" />
+    <div class="actions">
+      <button class="btn primary" id="btnSearch">搜索</button>
+      <button class="btn" id="btnClear">清空</button>
+      <button class="btn" id="btnAgg" title="同名聚合">聚合</button>
+      <button class="btn" id="btnPick" title="按货架顺序拣货">拣货</button>
+    </div>
+    <div class="hint"><span>tbkw = 头孢克肟</span><span>多药用 空格 / , 分隔</span></div>
+  </div>
+  <div id="view"></div>
+  <div class="colophon"><span>药品检索 · 离线版</span><span id="cnt"></span></div>
+</div>
+<script>
+const DATA = /*__DATA__*/;
+const LS_RECENT = "yp_recent_v1";
+let AGG = false;  // 聚合模式
+let PICK = false; // 拣货模式（按货架顺序 + 勾选进度）
+const LS_PICK = "yp_pick_v1";
+let pickState = {q:"", done:{}};  // done: {cardKey:1}，按查询持久化，防误刷新丢进度
+function loadPick(q){
+  try{
+    const s=JSON.parse(localStorage.getItem(LS_PICK)||"{}");
+    if(s.q===q && s.done){ pickState={q:q,done:s.done}; return; }
+  }catch(e){}
+  pickState={q:q,done:{}};
+}
+function savePick(){ try{ localStorage.setItem(LS_PICK,JSON.stringify(pickState)); }catch(e){} }
+
+// ---------- 工具 ----------
+function normCode(s){ return (s||"").replace(/[^0-9]/g,""); }
+function normText(s){ return (s||"").toLowerCase().replace(/[^0-9a-z\u4e00-\u9fff]/g,""); }
+const SEP = /[\s/,，.。;；、|]+/;
+
+function shortLabel(name){
+  let s = String(name||"");
+  s = s.replace(/^\d+\/\d+/,"");
+  s = s.replace(/[（(][^）)]*[）)]/g,"");
+  s = s.replace(/[A-Za-z]+/g,"");
+  s = s.replace(/\s+/g,"").replace(/[ⅠⅡⅢⅣⅤ]+$/,"");
+  if(s.length>10) s = s.slice(0,10)+"…";
+  return s;
+}
+function fmtCode(c){
+  c = String(c||""); if(!c) return "";
+  if(c.length<=4) return "<b>"+esc(c)+"</b>";
+  return esc(c.slice(0,-4))+"<b>"+esc(c.slice(-4))+"</b>";
+}
+function esc(s){ return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+function parseLoc(label){
+  if(!label) return null;
+  const zone = label.includes("·")? label.split("·")[0] : "";
+  const core = label.includes("·")? label.split("·").slice(1).join("·") : label;
+  const parts = core.split("-");
+  if(parts.length>=3){
+    const col=parts[parts.length-1], row=parts[parts.length-2];
+    const cab=parts.slice(0,parts.length-2).join("-");
+    if(/^\d+$/.test(row)&&/^\d+$/.test(col)) return {zone,cab,row:+row,col:+col};
+  }
+  return null;
+}
+
+// ---------- 搜索 ----------
+function searchSingle(q){
+  const qn = normText(q), qc = normCode(q);
+  if(!qn && !qc) return [];
+  const isCode = qc && qc===qn;
+  if(isCode && qc.length<4) return [];
+  if(qn.length<=1 && qc.length<4) return [];
+  let hits=[];
+  // 4位货号
+  if(isCode && qc.length===4){
+    hits = DATA.filter(r=>normCode(r.c).endsWith(qc)).map(r=>({r,score:142}));
+    if(hits.length) return rank(hits);
+  }
+  // 完整货号
+  if(qc.length>=6){
+    hits = DATA.filter(r=>normCode(r.c)===qc).map(r=>({r,score:150}));
+    if(hits.length) return rank(hits);
+    const t4=qc.slice(-4);
+    hits = DATA.filter(r=>normCode(r.c).endsWith(t4)).map(r=>({r,score:138}));
+    if(hits.length && isCode) return rank(hits);
+  }
+  // 拼音首字母
+  if(/^[a-z]{2,}$/.test(qn)){
+    const starts=[], contains=[];
+    for(const r of DATA){
+      const py=r.py||"";
+      if(py.startsWith(qn)) starts.push({r,score:120});
+      else if(py.includes(qn)) contains.push({r,score:96});
+    }
+    if(starts.length||contains.length){
+      const seen=new Set(), merged=[];
+      for(const x of starts.concat(contains)){ if(!seen.has(x.r)){seen.add(x.r);merged.push(x);} }
+      return rank(merged);
+    }
+  }
+  // 名称/主治 包含
+  const scored=[];
+  for(const r of DATA){
+    const name=normText(r.n);
+    let sc=0;
+    if(name===qn) sc=130;
+    else if(name.startsWith(qn)) sc=118;
+    else if(name.includes(qn)) sc=100;
+    else if(normText(r.cat).includes(qn)) sc=72;
+    if(sc>=70) scored.push({r,score:sc});
+  }
+  return rank(scored);
+}
+function rank(arr){
+  arr.sort((a,b)=> b.score-a.score || a.r.l.localeCompare(b.r.l));
+  return arr.slice(0,60);
+}
+function searchBatch(q){
+  const terms=q.split(SEP).map(t=>t.trim()).filter(Boolean);
+  const seen=new Set(), out=[], missing=[];
+  for(const t of terms){
+    const key=t.toLowerCase();
+    if(seen.has(key)) continue; seen.add(key);
+    const res=searchSingle(t);
+    if(!res.length){ missing.push(t); continue; }
+    res.forEach(x=>x.q=t);
+    out.push(...res);
+  }
+  return {out, missing, batch:terms.length>1 || SEP.test(q)};
+}
+
+// ---------- 合并成卡片 ----------
+function toCards(scored){
+  const map=new Map();
+  for(const {r,score,q} of scored){
+    const key=r.n+"|"+r.c;
+    if(!map.has(key)) map.set(key,{n:r.n,c:r.c,locs:[],zones:[],cab:r.cab,z:r.z,p:r.p,s:r.s,score:0,cat:r.cat,q});
+    const card=map.get(key);
+    if(!card.locs.includes(r.l)) card.locs.push(r.l);
+    if(!card.zones.includes(r.z)) card.zones.push(r.z);
+    card.score=Math.max(card.score,score);
+  }
+  return [...map.values()].sort((a,b)=>b.score-a.score).slice(0,60);
+}
+
+// ---------- 柜子轮廓 ----------
+function cabinetShape(zone,cab){
+  const sub=DATA.filter(r=>r.z===zone && r.cab===cab);
+  const rowset=new Set(); let maxCol=0; const rowMax={};
+  for(const r of sub){
+    const gr=String(r.p).split("-").pop();
+    if(/^\d+$/.test(gr)&&/^\d+$/.test(String(r.s))){
+      const g=+gr, c=+r.s; rowset.add(g); if(c>maxCol)maxCol=c;
+      rowMax[g]=Math.max(rowMax[g]||0,c);
+    }
+  }
+  return {rows:[...rowset].sort((a,b)=>a-b),maxCol,rowMax};
+}
+
+// ---------- 渲染：总览图 ----------
+function renderOverview(cards){
+  const cabMap=new Map(); // key -> {zone,cab,cells:Map "r-c"->[[label,idx]]}
+  cards.forEach((card,i)=>{
+    const idx=i+1, label=shortLabel(card.n);
+    for(const loc of card.locs){
+      const p=parseLoc(loc); if(!p) continue;
+      const key=p.zone+"|"+p.cab;
+      if(!cabMap.has(key)) cabMap.set(key,{zone:p.zone,cab:p.cab,cells:new Map()});
+      const cm=cabMap.get(key).cells, ck=p.row+"-"+p.col;
+      if(!cm.has(ck)) cm.set(ck,[]);
+      cm.get(ck).push([label,idx]);
+    }
+  });
+  if(!cabMap.size) return "";
+  const arr=[...cabMap.values()].map(o=>{
+    let n=0; o.cells.forEach(v=>n+=v.length); o.n=n; return o;
+  }).sort((a,b)=>b.n-a.n);
+  const shown=arr.slice(0,8), hidden=arr.length-shown.length;
+  let blocks="";
+  for(const o of shown){
+    const points=new Set([...o.cells.keys()]);
+    const shape=cabinetShape(o.zone,o.cab);
+    let grid="";
+    if(shape.rows.length && shape.maxCol>=1){
+      const cs= shape.maxCol<=14?9: (shape.maxCol<=20?7:6);
+      let cells="";
+      for(const gr of shape.rows){
+        const rmax=shape.rowMax[gr]||shape.maxCol;
+        for(let col=1;col<=shape.maxCol;col++){
+          const active=col<=rmax, hit=points.has(gr+"-"+col);
+          cells+="<span class='ov-cell"+(hit?" hit":(active?"":" empty"))+"'></span>";
+        }
+      }
+      grid="<div class='ov-scroll'><div class='ov-grid' style='grid-template-columns:repeat("+shape.maxCol+","+cs+"px);grid-auto-rows:"+cs+"px;gap:2px;'>"+cells+"</div></div>";
+    }
+    let list="";
+    [...o.cells.keys()].sort((a,b)=>{const[ar,ac]=a.split("-").map(Number),[br,bc]=b.split("-").map(Number);return ar-br||ac-bc;}).forEach(ck=>{
+      const seen=[],entries=o.cells.get(ck);
+      entries.forEach(([nm,idx])=>{ if(!seen.some(e=>e[0]===nm&&e[1]===idx)) seen.push([nm,idx]); });
+      const links=seen.map(([nm,idx])=>"<a class='ov-dn' href='#card-"+idx+"' onclick='gotoCard(event,"+idx+")'>"+esc(nm)+"</a>").join(" / ");
+      list+="<div class='ov-item'><span class='ov-rc'>"+ck+"</span><span>"+links+"</span></div>";
+    });
+    blocks+="<div class='ov-cab'><div class='ov-cab-head'><span class='ov-cab-name'>"+esc(o.zone)+"·"+esc(o.cab)+"</span><span class='ov-cab-count'>"+o.n+"</span></div>"+grid+"<div class='ov-list'>"+list+"</div></div>";
+  }
+  const more=hidden>0?"<div class='ov-more'>另有 "+hidden+" 个柜未展开</div>":"";
+  return "<div class='overview'><div class='overview-head'><span>位置总览</span><span class='overview-sub'>"+cards.length+" 项 · "+cabMap.size+" 个柜</span></div><div class='overview-grid'>"+blocks+"</div>"+more+"</div>";
+}
+
+// ---------- 渲染：详情柜位图 ----------
+function detailGrid(card){
+  const p0=parseLoc(card.locs[0]); if(!p0) return "";
+  const shape=cabinetShape(p0.zone,p0.cab);
+  if(!shape.rows.length||shape.maxCol<1){
+    return "<div class='locator'><div class='locator-cap'><span>柜位坐标</span><b>"+card.locs.map(esc).join(" / ")+"</b></div></div>";
+  }
+  // 命中点（本药所有同柜位置）
+  const hits=new Set(); let primary=p0.row+"-"+p0.col;
+  for(const loc of card.locs){ const p=parseLoc(loc); if(p&&p.zone===p0.zone&&p.cab===p0.cab) hits.add(p.row+"-"+p.col); }
+  const cs= shape.maxCol<=8?14:(shape.maxCol<=12?12:(shape.maxCol<=16?10:(shape.maxCol<=22?8:6)));
+  const g= shape.maxCol<=8?4:(shape.maxCol<=12?3:(shape.maxCol<=16?3:2));
+  const step= shape.maxCol<=12?1:2;
+  let axis="<span class='axis-corner'></span>";
+  for(let c=1;c<=shape.maxCol;c++){ axis+="<span class='axis-col'>"+((c===1||c===shape.maxCol||c%step===0)?c:"")+"</span>"; }
+  let body="";
+  for(const gr of shape.rows){
+    const rmax=shape.rowMax[gr]||shape.maxCol;
+    body+="<span class='axis-row'>"+gr+"</span>";
+    for(let col=1;col<=shape.maxCol;col++){
+      const active=col<=rmax, key=gr+"-"+col;
+      let cls="cell";
+      if(active&&hits.has(key)) cls+=(key===primary?" hit":" hit hit-alt");
+      else if(!active) cls+=" empty";
+      body+="<span class='"+cls+"'></span>";
+    }
+  }
+  const coords=[...hits].sort((a,b)=>{const[ar,ac]=a.split("-").map(Number),[br,bc]=b.split("-").map(Number);return ar-br||ac-bc;}).map(k=>{const[r,c]=k.split("-");return "行"+r+" 列"+c;}).join(" / ");
+  return "<div class='locator' style='--cs:"+cs+"px;--g:"+g+"px;'><div class='locator-cap'><span>柜位坐标</span><b>"+esc(p0.zone)+" · "+esc(p0.cab)+" · "+coords+"</b></div>"+
+    "<div class='cab-scroll'><div class='cab-board'>"+
+    "<div class='cab-axis' style='grid-template-columns:18px repeat("+shape.maxCol+","+cs+"px);'>"+axis+"</div>"+
+    "<div class='cab-grid' style='grid-template-columns:18px repeat("+shape.maxCol+","+cs+"px);grid-auto-rows:"+cs+"px;'>"+body+"</div>"+
+    "</div></div></div>";
+}
+
+// ---------- 渲染：单卡片 ----------
+function renderCard(card,idx){
+  const loc=card.locs[0]||"", extra=card.locs.length>1?"<span class='row-loc-extra'>+"+(card.locs.length-1)+"处</span>":"";
+  const tags=[];
+  if(card.q) tags.push("查："+esc(card.q));
+  if(card.locs.length>1) tags.push("<span class='row-tag-danger'>多位置·需核对</span>");
+  const tagHtml=tags.length?("<div class='row-tags'>"+tags.join("<span class='div'>/</span>")+"</div>"):"";
+  return "<div class='row' id='card-"+idx+"'>"+
+    "<div class='row-topline'><span class='row-code-lead mono'>货号 "+fmtCode(card.c)+"</span>"+
+    "<span class='row-loc-lead mono'>"+esc(loc)+extra+"</span></div>"+
+    "<div class='row-name'>"+esc(card.n)+"</div>"+tagHtml+detailGrid(card)+"</div>";
+}
+
+// ---------- 渲染：聚合视图 ----------
+function renderAgg(cards){
+  const groups=new Map();
+  cards.forEach((card,i)=>{
+    const g=shortLabel(card.n);
+    if(!groups.has(g)) groups.set(g,[]);
+    groups.get(g).push([card,i+1]);
+  });
+  let html="<div class='agg'>";
+  let gi=0;
+  for(const [g,items] of groups){
+    const open = items.length<=2 ? "open":"";
+    let body="";
+    for(const [card,idx] of items) body+=renderCard(card,idx);
+    html+="<div class='agg-group "+open+"'><div class='agg-head' onclick='this.parentNode.classList.toggle(\"open\")'>"+
+      "<span class='gchev'>▸</span><span class='gtitle'>"+esc(g)+"</span><span class='gcount'>"+items.length+"</span></div>"+
+      "<div class='agg-body'>"+body+"</div></div>";
+    gi++;
+  }
+  html+="</div>";
+  return html;
+}
+
+// ---------- 主渲染 ----------
+// ---------- 渲染：拣货模式 ----------
+function cardKey(c){ return c.n+"|"+c.c; }
+function renderPick(cards){
+  // 每个药一行，放在首位置；按 分区→柜→行→列 物理顺序排（走一遍货架拣完）
+  const items=[];
+  cards.forEach((card,i)=>{
+    const p=parseLoc(card.locs[0]);
+    items.push({card, idx:i+1, p, multi:card.locs.length>1});
+  });
+  items.sort((a,b)=>{
+    const pa=a.p, pb=b.p;
+    if(!pa&&!pb) return 0; if(!pa) return 1; if(!pb) return -1;
+    return pa.zone.localeCompare(pb.zone,"zh") || pa.cab.localeCompare(pb.cab,"zh")
+      || pa.row-pb.row || pa.col-pb.col;
+  });
+  const doneN=items.filter(it=>pickState.done[cardKey(it.card)]).length;
+  let html="<div class='pick-bar'><span class='pt'>拣货清单</span>"+
+    "<span class='pp'>已拣 <b id='pickN'>"+doneN+"</b> / "+items.length+"</span>"+
+    "<button class='linkbtn' onclick='resetPick()'>重置</button></div>";
+  let curCab=null, cabCount=0;
+  // 预统计每柜条数
+  const cabTotals={};
+  items.forEach(it=>{ const k=it.p?(it.p.zone+"·"+it.p.cab):"未知位置"; cabTotals[k]=(cabTotals[k]||0)+1; });
+  for(const it of items){
+    const cabName=it.p?(it.p.zone+"·"+it.p.cab):"未知位置";
+    if(cabName!==curCab){
+      curCab=cabName;
+      html+="<div class='pick-cab-head'><span class='pcn'>"+esc(cabName)+"</span><span class='pcc'>"+cabTotals[cabName]+" 项</span></div>";
+    }
+    const key=cardKey(it.card), done=pickState.done[key]?" done":"";
+    const rc=it.p?(it.p.row+"-"+it.p.col):"—";
+    const multi=it.multi?"<span class='pick-multi'>+"+(it.card.locs.length-1)+"处</span>":"";
+    html+="<div class='pick-row"+done+"' data-key='"+esc(key)+"' onclick='togglePick(this)'>"+
+      "<span class='pick-check'>✓</span>"+
+      "<span class='pick-rc'>"+rc+"</span>"+
+      "<div class='pick-body'><div class='pick-name'>"+esc(it.card.n)+multi+"</div>"+
+      "<div class='pick-code'>货号 "+fmtCode(it.card.c)+"</div></div></div>";
+  }
+  return html;
+}
+function togglePick(el){
+  const key=el.getAttribute("data-key");
+  if(pickState.done[key]) delete pickState.done[key]; else pickState.done[key]=1;
+  el.classList.toggle("done");
+  savePick();
+  const n=document.querySelectorAll(".pick-row.done").length;
+  const cnt=document.getElementById("pickN"); if(cnt) cnt.textContent=n;
+}
+function resetPick(){
+  pickState.done={}; savePick(); render();
+}
+function countCabs(cards){
+  const s=new Set();
+  for(const card of cards) for(const loc of card.locs){ const p=parseLoc(loc); if(p)s.add(p.zone+"|"+p.cab); }
+  return s.size;
+}
+function render(pushHist){
+  const q=document.getElementById("q").value.trim();
+  const view=document.getElementById("view");
+  if(!q){ renderHome(); return; }
+  if(pushHist!==false) pushRecent(q);
+  const {out,missing,batch}=searchBatch(q);
+  if(!out.length){
+    view.innerHTML="<div class='empty'><div class='empty-mark'>— NO MATCH —</div><div class='empty-title'>「"+esc(q)+"」未命中</div><div class='empty-sub'>试试药名、货号后四位，或拼音首字母</div></div>";
+    return;
+  }
+  const cards=toCards(out);
+  const ncab=countCabs(cards);
+  const showOv=!PICK && ((cards.length>=5&&ncab>=2)||(ncab>=3));
+  let html="";
+  html+="<div class='result-meta'><div class='result-meta-count'><b>"+cards.length+"</b> 结果</div><div class='result-meta-note'>"+(PICK?"拣货模式":(AGG?"聚合视图":(missing.length?"未找到 "+missing.length+" 项":"列表")))+"</div></div>";
+  if(missing.length) html+="<div class='hint' style='margin-top:8px'><span>未找到</span><span>"+esc(missing.join(" / "))+"</span></div>";
+  if(showOv) html+=renderOverview(cards);
+  if(PICK){ loadPick(q); html+=renderPick(cards); }
+  else if(AGG){ html+=renderAgg(cards); }
+  else { let rows=""; cards.forEach((c,i)=>rows+=renderCard(c,i+1)); html+=rows; }
+  view.innerHTML=html;
+  if(pushHist!==false) window.scrollTo({top:0,behavior:"instant"});
+}
+
+function gotoCard(ev,idx){
+  ev.preventDefault();
+  const el=document.getElementById("card-"+idx);
+  if(el){
+    // 若在聚合模式且该卡片在折叠组内，先展开
+    const grp=el.closest(".agg-group"); if(grp) grp.classList.add("open");
+    el.scrollIntoView({behavior:"smooth",block:"center"});
+    // 触发高亮
+    el.style.animation="none"; void el.offsetWidth; el.style.animation="";
+    history.replaceState(null,"","#card-"+idx);
+  }
+}
+
+// ---------- recent ----------
+function getRecent(){ try{ return JSON.parse(localStorage.getItem(LS_RECENT)||"[]"); }catch(e){ return []; } }
+function pushRecent(q){
+  let r=getRecent(); r=r.filter(x=>x!==q); r.unshift(q); r=r.slice(0,8);
+  try{ localStorage.setItem(LS_RECENT,JSON.stringify(r)); }catch(e){}
+}
+function renderHome(){
+  const r=getRecent(), view=document.getElementById("view");
+  if(!r.length){ view.innerHTML="<div class='hint' style='margin-top:24px'><span>输入药名 / 货号后4位 / 拼音首字母</span></div>"; return; }
+  let chips=r.map(t=>"<span class='chip' onclick='runQuery("+JSON.stringify(t).replace(/"/g,"&quot;")+")'>"+esc(t)+"</span>").join("");
+  view.innerHTML="<div class='recent'><div class='recent-head'><span>最近</span><button class='linkbtn' onclick='clearRecent()'>清除</button></div><div class='recent-chips'>"+chips+"</div></div>";
+}
+function runQuery(t){ document.getElementById("q").value=t; render(true); }
+function clearRecent(){ try{ localStorage.removeItem(LS_RECENT); }catch(e){} renderHome(); }
+
+// ---------- 事件 ----------
+document.getElementById("btnSearch").onclick=()=>render(true);
+document.getElementById("btnClear").onclick=()=>{ document.getElementById("q").value=""; renderHome(); };
+document.getElementById("btnAgg").onclick=function(){ AGG=!AGG; if(AGG){PICK=false;document.getElementById("btnPick").classList.remove("primary");} this.classList.toggle("primary",AGG); render(false); };
+document.getElementById("btnPick").onclick=function(){ PICK=!PICK; if(PICK){AGG=false;document.getElementById("btnAgg").classList.remove("primary");} this.classList.toggle("primary",PICK); render(false); };
+document.getElementById("q").addEventListener("keydown",e=>{ if(e.key==="Enter"){ e.preventDefault(); render(true); } });
+// 实时搜索：输入即出结果（防抖 220ms）；停顿 1.6s 才记入历史，避免打一半就入库
+let liveTimer=null, histTimer=null;
+document.getElementById("q").addEventListener("input",()=>{
+  clearTimeout(liveTimer); clearTimeout(histTimer);
+  liveTimer=setTimeout(()=>render(false),220);
+  histTimer=setTimeout(()=>{ const q=document.getElementById("q").value.trim(); if(q) pushRecent(q); },1600);
+});
+document.getElementById("cnt").textContent=DATA.length+" REC";
+document.getElementById("meta").textContent=DATA.length+" ITEMS";
+renderHome();
+</script>
+</body>
+</html>
